@@ -1,0 +1,75 @@
+{
+  "users": [
+    {
+      "id": "admin-system-id",
+      "email": "admin@assistant.com",
+      "passwordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "name": "System Admin",
+      "role": "admin"
+    },
+    {
+      "email": "fdgdfga@gmail.com",
+      "passwordHash": "ee79976c9380d5e337fc1c095ece8c8f22f91f306ceeb161fa51fecede2c4ba1",
+      "name": "ew",
+      "role": "user",
+      "id": "2e00d427-bba7-4ce1-8755-7406b257a7f1"
+    }
+  ],
+  "documents": [
+    {
+      "filename": "rag_spec.txt",
+      "mimeType": "text/plain",
+      "uploadDate": "2026-06-07T17:23:20.217Z",
+      "userId": "test-validation-user-id",
+      "size": 85,
+      "id": "b8fef6ea-dea0-4118-b038-5220aaa42875"
+    },
+    {
+      "filename": "rag_spec.txt",
+      "mimeType": "text/plain",
+      "uploadDate": "2026-06-07T17:29:01.009Z",
+      "userId": "test-validation-user-id",
+      "size": 85,
+      "id": "02264928-d31a-4973-91c1-319070ab78e9"
+    },
+    {
+      "filename": "vector_math.txt",
+      "mimeType": "text/plain",
+      "uploadDate": "2026-06-07T17:29:01.807Z",
+      "userId": "test-validation-user-id",
+      "size": 102,
+      "id": "62c65b88-5ce0-4d70-a39d-d7662c56d05c"
+    }
+  ],
+  "chunks": [
+    {
+      "id": "chunk-02264928-d31a-4973-91c1-319070ab78e9-0",
+      "documentId": "02264928-d31a-4973-91c1-319070ab78e9",
+      "userId": "test-validation-user-id",
+      "filename": "rag_spec.txt",
+      "text": "Retrieval Augmented Generation merges real-time search with parametric LLM execution.",
+      "pageNumber": 1
+    },
+    {
+      "id": "chunk-62c65b88-5ce0-4d70-a39d-d7662c56d05c-0",
+      "documentId": "62c65b88-5ce0-4d70-a39d-d7662c56d05c",
+      "userId": "test-validation-user-id",
+      "filename": "vector_math.txt",
+      "text": "Cosine distance calculates semantic distance by evaluating inner dot products over coordinate vectors.",
+      "pageNumber": 1
+    }
+  ],
+  "chats": [],
+  "searchLogs": [],
+  "analytics": {
+    "uploadsCount": 5,
+    "chatsCount": 0,
+    "queriesCount": 0,
+    "searchesCount": 0,
+    "userActiveMap": {
+      "2026-06-07": [
+        "2e00d427-bba7-4ce1-8755-7406b257a7f1"
+      ]
+    }
+  }
+}

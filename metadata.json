@@ -1,0 +1,6 @@
+{
+  "name": "AI Research Assistant",
+  "description": "A premium AI-powered document intelligence platform that allows users to upload documents and chat with them using Retrieval-Augmented Generation (RAG).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
