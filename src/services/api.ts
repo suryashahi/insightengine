@@ -1,5 +1,45 @@
 // API Service interface for client-server operations in AI Research Assistant
 
+const originalFetch = window.fetch;
+const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  let res: Response;
+  try {
+    res = await originalFetch(input, init);
+  } catch (err: any) {
+    if (err?.message && (err.message.includes("Failed to fetch") || err.message.includes("Load failed"))) {
+      throw new Error("Network / CORS block: Unable to connect to backend. Please ensure your backend is awake and CORS headers are valid.");
+    }
+    throw err;
+  }
+  
+  const originalJson = res.json.bind(res);
+  const originalText = res.text.bind(res);
+  
+  res.json = async () => {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        return await originalJson();
+      } catch (err) {
+        console.error("JSON parsing failed, falling back to text", err);
+      }
+    }
+    
+    const text = await originalText();
+    if (text.includes("<!DOCTYPE html>") || text.includes("<html") || res.status === 404) {
+      return { error: `Unexpected HTML/404 response (Status ${res.status}). Please verify that your VITE_API_URL is correctly configured in Vercel to point to your Render backend URL.` };
+    }
+    return { error: text.slice(0, 200) || `Server returned Status ${res.status}` };
+  };
+  
+  return res;
+};
+
+const getApiUrl = (): string => {
+  const url = ((import.meta as any).env?.VITE_API_URL as string) || "";
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+};
+
 const getHeaders = (isMultipart = false) => {
   const token = localStorage.getItem("token");
   const headers: Record<string, string> = {};
@@ -18,7 +58,7 @@ const getHeaders = (isMultipart = false) => {
 export const api = {
   // Auth Module
   async register(payload: any) {
-    const res = await fetch("/api/register", {
+    const res = await fetch(`${getApiUrl()}/api/register`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -29,7 +69,7 @@ export const api = {
   },
 
   async login(payload: any) {
-    const res = await fetch("/api/login", {
+    const res = await fetch(`${getApiUrl()}/api/login`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -40,7 +80,7 @@ export const api = {
   },
 
   async getMe() {
-    const res = await fetch("/api/me", {
+    const res = await fetch(`${getApiUrl()}/api/me`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -51,7 +91,7 @@ export const api = {
 
   // Document Module
   async getDocuments() {
-    const res = await fetch("/api/documents", {
+    const res = await fetch(`${getApiUrl()}/api/documents`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -64,7 +104,7 @@ export const api = {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
 
-    const res = await fetch("/api/upload", {
+    const res = await fetch(`${getApiUrl()}/api/upload`, {
       method: "POST",
       headers: getHeaders(true),
       body: formData,
@@ -75,7 +115,7 @@ export const api = {
   },
 
   async renameDocument(id: string, filename: string) {
-    const res = await fetch(`/api/documents/${id}`, {
+    const res = await fetch(`${getApiUrl()}/api/documents/${id}`, {
       method: "PUT",
       headers: getHeaders(),
       body: JSON.stringify({ filename }),
@@ -86,7 +126,7 @@ export const api = {
   },
 
   async deleteDocument(id: string) {
-    const res = await fetch(`/api/documents/${id}`, {
+    const res = await fetch(`${getApiUrl()}/api/documents/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
     });
@@ -97,7 +137,7 @@ export const api = {
 
   // Chat RAG Module
   async sendMessage(message: string, sessionId?: string) {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(`${getApiUrl()}/api/chat`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ message, sessionId }),
@@ -108,7 +148,7 @@ export const api = {
   },
 
   async getHistory() {
-    const res = await fetch("/api/history", {
+    const res = await fetch(`${getApiUrl()}/api/history`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -118,7 +158,7 @@ export const api = {
   },
 
   async deleteSession(id: string) {
-    const res = await fetch(`/api/history/${id}`, {
+    const res = await fetch(`${getApiUrl()}/api/history/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
     });
@@ -129,7 +169,7 @@ export const api = {
 
   // AI Utilities Module
   async getSummary(documentId: string) {
-    const res = await fetch(`/api/summary/${documentId}`, {
+    const res = await fetch(`${getApiUrl()}/api/summary/${documentId}`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -139,7 +179,7 @@ export const api = {
   },
 
   async getFlashcards(documentId: string) {
-    const res = await fetch(`/api/flashcards/${documentId}`, {
+    const res = await fetch(`${getApiUrl()}/api/flashcards/${documentId}`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -149,7 +189,7 @@ export const api = {
   },
 
   async getQuiz(documentId: string) {
-    const res = await fetch(`/api/quiz/${documentId}`, {
+    const res = await fetch(`${getApiUrl()}/api/quiz/${documentId}`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -160,7 +200,7 @@ export const api = {
 
   // Global Keyword & Semantic Search
   async searchAcrossDocs(query: string) {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+    const res = await fetch(`${getApiUrl()}/api/search?q=${encodeURIComponent(query)}`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -171,7 +211,7 @@ export const api = {
 
   // Analytics Module
   async getAnalytics() {
-    const res = await fetch("/api/analytics", {
+    const res = await fetch(`${getApiUrl()}/api/analytics`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -181,7 +221,7 @@ export const api = {
   },
 
   async getRouterAnalytics() {
-    const res = await fetch("/api/router-analytics", {
+    const res = await fetch(`${getApiUrl()}/api/router-analytics`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -192,7 +232,7 @@ export const api = {
 
   // Admin APIs (Guard-protected)
   async adminGetUsers() {
-    const res = await fetch("/api/admin/users", {
+    const res = await fetch(`${getApiUrl()}/api/admin/users`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -202,7 +242,7 @@ export const api = {
   },
 
   async adminGetDocuments() {
-    const res = await fetch("/api/admin/documents", {
+    const res = await fetch(`${getApiUrl()}/api/admin/documents`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -212,7 +252,7 @@ export const api = {
   },
 
   async adminGetChatLogs() {
-    const res = await fetch("/api/admin/chat-logs", {
+    const res = await fetch(`${getApiUrl()}/api/admin/chat-logs`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -222,7 +262,7 @@ export const api = {
   },
 
   async adminDeleteUser(id: string) {
-    const res = await fetch(`/api/admin/users/${id}`, {
+    const res = await fetch(`${getApiUrl()}/api/admin/users/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
     });
@@ -232,7 +272,7 @@ export const api = {
   },
 
   async adminGetAnalytics() {
-    const res = await fetch("/api/admin/analytics", {
+    const res = await fetch(`${getApiUrl()}/api/admin/analytics`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -242,7 +282,7 @@ export const api = {
   },
 
   async getLimits() {
-    const res = await fetch("/api/limits", {
+    const res = await fetch(`${getApiUrl()}/api/limits`, {
       method: "GET",
       headers: getHeaders(),
     });
@@ -252,7 +292,7 @@ export const api = {
   },
 
   async adminUpdateProviderUsage(percent: number) {
-    const res = await fetch("/api/admin/provider-usage", {
+    const res = await fetch(`${getApiUrl()}/api/admin/provider-usage`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ percent }),

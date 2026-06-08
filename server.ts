@@ -26,6 +26,20 @@ const app = express();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "ai-research-assistant-super-secret-key-2026";
 
+// Custom CORS Middleware to allow cross-origin requests from any origin (including Vercel frontend)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "*";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Middlewares
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -1084,6 +1098,26 @@ app.delete("/api/admin/users/:id", authenticateToken, requireAdmin, (req, res) =
   }
   const success = db.deleteUser(req.params.id);
   return res.json({ success });
+});
+
+// Fallback 404 handler for unmatched /api routes to prevent HTML/text responses
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.originalUrl} not found` });
+});
+
+// Global error handling middleware for API routes to always return structured JSON
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Global API Error caught:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal server error";
+
+  if (req.originalUrl && req.originalUrl.startsWith("/api/")) {
+    return res.status(status).json({ error: message });
+  }
+  next(err);
 });
 
 // Setup dev server with Vite or production build server
