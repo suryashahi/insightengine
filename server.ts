@@ -1252,6 +1252,38 @@ app.use((err: any, req: any, res: any, next: any) => {
   next(err);
 });
 
+// Inspect and output active routes at startup
+function logRegisteredRoutes() {
+  console.log("\n================ REGISTERED BACKEND ROUTES ================");
+  try {
+    const routes: { method: string; path: string }[] = [];
+    
+    function traverse(stack: any[], parentPath = "") {
+      stack.forEach((layer: any) => {
+        if (layer.route) {
+          const pathStr = parentPath + layer.route.path;
+          const methods = Object.keys(layer.route.methods).map(m => m.toUpperCase());
+          methods.forEach(m => routes.push({ method: m, path: pathStr }));
+        } else if (layer.name === "router" && layer.handle && layer.handle.stack) {
+          traverse(layer.handle.stack, parentPath);
+        }
+      });
+    }
+
+    if ((app as any)._router && (app as any)._router.stack) {
+      traverse((app as any)._router.stack);
+    }
+    
+    routes.sort((a, b) => a.path.localeCompare(b.path));
+    routes.forEach(r => {
+      console.log(`[ROUTE ACTIVE]  ${r.method.padEnd(7)} -> ${r.path}`);
+    });
+  } catch (err) {
+    console.error("Failed to inspect backend routes:", err);
+  }
+  console.log("===========================================================\n");
+}
+
 // Setup dev server with Vite or production build server
 async function bootServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -1282,6 +1314,7 @@ async function bootServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Premium AI Research Assistant Server live on: http://localhost:${PORT}`);
+    logRegisteredRoutes();
   });
 }
 

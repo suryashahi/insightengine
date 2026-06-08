@@ -1,40 +1,44 @@
-import sqlite3 from "sqlite3";
-import { open, Database } from "sqlite";
+import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
-let sqliteDb: Database | null = null;
-const dbPath = path.join(process.cwd(), "password_reset.db");
+interface ResetTokenRecord {
+  email: string;
+  token: string;
+  expires_at: number;
+}
+
+const dbPath = path.join(process.cwd(), "password_resets.json");
 
 /**
- * Initializes and returns the SQLite database connection.
- * Ensures the `reset_tokens` table is created before returning.
+ * Helper to read token records from the JSON db.
  */
-export async function getSqliteDb(): Promise<Database> {
-  if (!sqliteDb) {
-    try {
-      sqliteDb = await open({
-        filename: dbPath,
-        driver: sqlite3.Database,
-      });
-
-      // Create Table if not exists
-      await sqliteDb.exec(`
-        CREATE TABLE IF NOT EXISTS reset_tokens (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          email TEXT NOT NULL,
-          token TEXT NOT NULL UNIQUE,
-          expires_at INTEGER NOT NULL
-        )
-      `);
-      console.log(`[SQLITE SETUP] Successfully connected to SQLite db at: ${dbPath}`);
-    } catch (err) {
-      console.error("[SQLITE SETUP ERROR] Failed to initialize SQLite database:", err);
-      throw err;
+function loadTokens(): ResetTokenRecord[] {
+  try {
+    if (fs.existsSync(dbPath)) {
+      const data = fs.readFileSync(dbPath, "utf-8");
+      return JSON.parse(data);
     }
+  } catch (err) {
+    console.error("[TOKENS DB LOAD ERROR] Failed to load reset tokens:", err);
   }
-  return sqliteDb;
+  return [];
+}
+
+/**
+ * Helper to write token records safely back to the JSON db file.
+ */
+function saveTokens(tokens: ResetTokenRecord[]) {
+  try {
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(dbPath, JSON.stringify(tokens, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[TOKENS DB SAVE ERROR] Failed to save reset tokens:", err);
+  }
 }
 
 /**
@@ -42,22 +46,25 @@ export async function getSqliteDb(): Promise<Database> {
  * Cleans up older tokens associated with the user's email first.
  */
 export async function createResetToken(email: string): Promise<string> {
-  const db = await getSqliteDb();
-  
+  const normalizedEmail = email.toLowerCase().trim();
+  let tokens = loadTokens();
+
   // Clean up any existing tokens for this specific email
-  await db.run("DELETE FROM reset_tokens WHERE email = ?", [email.toLowerCase()]);
+  tokens = tokens.filter(t => t.email !== normalizedEmail);
 
   // Generate a cryptographically secure reset token
   const token = crypto.randomBytes(32).toString("hex");
   const ONE_HOUR = 3600000;
   const expiresAtMs = Date.now() + ONE_HOUR;
 
-  // Insert token securely
-  await db.run(
-    "INSERT INTO reset_tokens (email, token, expires_at) VALUES (?, ?, ?)",
-    [email.toLowerCase(), token, expiresAtMs]
-  );
+  tokens.push({
+    email: normalizedEmail,
+    token,
+    expires_at: expiresAtMs,
+  });
 
+  saveTokens(tokens);
+  console.log(`[PASS RESET DB] Dispatching reset token of length ${token.length} for ${normalizedEmail}`);
   return token;
 }
 
@@ -65,29 +72,31 @@ export async function createResetToken(email: string): Promise<string> {
  * Validates a reset token. Returns the associated user email if valid, or null if expired/nonexistent.
  */
 export async function verifyResetToken(token: string): Promise<string | null> {
-  const db = await getSqliteDb();
-  const row = await db.get("SELECT email, expires_at FROM reset_tokens WHERE token = ?", [token]);
+  const tokens = loadTokens();
+  const found = tokens.find(t => t.token === token);
   
-  if (!row) {
+  if (!found) {
     return null;
   }
 
   const now = Date.now();
-  if (now > row.expires_at) {
+  if (now > found.expires_at) {
     // Clean up expired token
-    await db.run("DELETE FROM reset_tokens WHERE token = ?", [token]);
+    const remaining = tokens.filter(t => t.token !== token);
+    saveTokens(remaining);
     return null;
   }
 
-  return row.email;
+  return found.email;
 }
 
 /**
  * Invalidate token manually after successful reset to enforce single-use tokens.
  */
 export async function invalidateResetToken(token: string): Promise<void> {
-  const db = await getSqliteDb();
-  await db.run("DELETE FROM reset_tokens WHERE token = ?", [token]);
+  const tokens = loadTokens();
+  const remaining = tokens.filter(t => t.token !== token);
+  saveTokens(remaining);
 }
 
 /**
