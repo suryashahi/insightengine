@@ -21,6 +21,8 @@ import {
   getAIClient,
 } from "./server/rag";
 import { AIRouter } from "./server/ai_router";
+import { createResetToken, verifyResetToken, invalidateResetToken, sendResetEmail } from "./server/reset_db";
+
 
 const app = express();
 const PORT = 3000;
@@ -149,6 +151,96 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     environment: "production"
   });
+});
+
+// --- Password Reset Rate Limiting ---
+const resetRateLimits: Record<string, number[]> = {};
+
+function passwordResetLimiter(req: any, res: any, next: any) {
+  const email = (req.body.email || "").toLowerCase().trim();
+  const now = Date.now();
+  if (!email) {
+    return next();
+  }
+  if (!resetRateLimits[email]) {
+    resetRateLimits[email] = [];
+  }
+  // 15-minute sliding window (900000 ms)
+  resetRateLimits[email] = resetRateLimits[email].filter(t => now - t < 900000);
+  if (resetRateLimits[email].length >= 3) {
+    return res.status(429).json({ error: "Too many password reset requests. Please wait up to 15 minutes before trying again." });
+  }
+  resetRateLimits[email].push(now);
+  next();
+}
+
+// Password Reset - Request reset link
+app.post("/api/forgot-password", passwordResetLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email address is required." });
+    }
+
+    const user = db.getUserByEmail(email);
+    if (!user) {
+      // Security: do not disclose that user doesn't exist. Keep response consistent.
+      return res.json({
+        success: true,
+        message: "If that email address is registered, a password reset link has been dispatched.",
+      });
+    }
+
+    // Generate token in SQLite, send email
+    const token = await createResetToken(email);
+    const originUrl = req.body.origin || req.headers.origin || req.headers.referer || "http://localhost:5173";
+    const result = await sendResetEmail(email, token, originUrl);
+
+    return res.json({
+      success: true,
+      message: "If that email address is registered, a password reset link has been dispatched.",
+      previewUrl: (result as any).previewUrl || null,
+    });
+  } catch (error: any) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({ error: "Failed to process password reset request." });
+  }
+});
+
+// Password Reset - Execute password reset via token
+app.post("/api/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ error: "Token and password are required." });
+    }
+
+    const email = await verifyResetToken(token);
+    if (!email) {
+      return res.status(400).json({ error: "Invalid, expired, or used password reset token." });
+    }
+
+    const user = db.getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "Associated user profile could not be found." });
+    }
+
+    // Hash the new password using the same sha256 method
+    const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+    user.passwordHash = passwordHash;
+    db.save();
+
+    // Invalidate the token after single-use
+    await invalidateResetToken(token);
+
+    return res.json({
+      success: true,
+      message: "Your password has been successfully updated. You may now log in.",
+    });
+  } catch (error: any) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ error: "Failed to establish new password." });
+  }
 });
 
 // 1. Auth Module

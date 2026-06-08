@@ -79,6 +79,28 @@ export const api = {
     return data;
   },
 
+  async forgotPassword(email: string) {
+    const res = await fetch(`${getApiUrl()}/api/forgot-password`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ email, origin: window.location.origin }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Password reset request failed");
+    return data;
+  },
+
+  async resetPassword(payload: any) {
+    const res = await fetch(`${getApiUrl()}/api/reset-password`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Password reset execution failed");
+    return data;
+  },
+
   async getMe() {
     const res = await fetch(`${getApiUrl()}/api/me`, {
       method: "GET",

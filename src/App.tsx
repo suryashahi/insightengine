@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ChatPage from "./pages/ChatPage";
 import DocumentsPage from "./pages/DocumentsPage";
@@ -17,6 +18,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isAuthActive, setIsAuthActive] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
   
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -25,6 +27,15 @@ export default function App() {
   // Sync token state on startup
   useEffect(() => {
     async function checkAuth() {
+      // Check for resetToken query parameter in the URL on startup
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get("resetToken");
+      if (urlToken) {
+        setResetToken(urlToken);
+        // Clean up parameters so URL is pristine and high-fidelity
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       const savedToken = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
 
@@ -95,6 +106,22 @@ export default function App() {
         <div className="w-10 h-10 rounded-full border-2 border-slate-300 border-t-purple-600 animate-spin" />
         <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest leading-none">AI Research Assist bootloader...</p>
       </div>
+    );
+  }
+
+  // Segment 0: Intercept if the secure resetToken is captured
+  if (resetToken) {
+    return (
+      <ResetPasswordPage
+        token={resetToken}
+        onSuccess={() => {
+          setResetToken(null);
+          setIsAuthActive(true);
+        }}
+        onCancel={() => {
+          setResetToken(null);
+        }}
+      />
     );
   }
 
