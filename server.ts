@@ -28,8 +28,23 @@ const JWT_SECRET = process.env.JWT_SECRET || "ai-research-assistant-super-secret
 
 // Custom CORS Middleware to allow cross-origin requests from any origin (including Vercel frontend)
 app.use((req, res, next) => {
-  const origin = req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
+  const allowedOrigins = [
+    "https://insightengine-brown.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+  const origin = req.headers.origin;
+  
+  if (origin) {
+    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app") || origin.includes("localhost") || origin.includes("run.app")) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -110,6 +125,16 @@ function rateLimiter(req: any, res: any, next: any) {
 }
 
 // --- API Routes ---
+
+// Backend Health Endpoint
+app.get("/api/health", (req, res) => {
+  return res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    message: "AI Research Assistant Backend is healthy and configured for Vercel integration.",
+    vercelAllowedOrigin: "https://insightengine-brown.vercel.app"
+  });
+});
 
 // 1. Auth Module
 app.post("/api/register", (req, res) => {
