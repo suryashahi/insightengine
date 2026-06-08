@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import { User } from "./types";
 import { api } from "./services/api";
+import { Menu, Sparkles } from "lucide-react";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -22,6 +23,7 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Sync token state on startup
@@ -155,25 +157,52 @@ export default function App() {
 
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setMobileMenuOpen(false);
+        }}
         user={user}
         onLogout={handleLogout}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
       />
 
       {/* Main Screen Active Tab Renderers */}
-      <main className="flex-1 overflow-hidden flex flex-col h-full bg-transparent">
-        {activeTab === "dashboard" && (
-          <DashboardPage user={user} setActiveTab={setActiveTab} />
-        )}
-        {activeTab === "chat" && <ChatPage />}
-        {activeTab === "documents" && <DocumentsPage />}
-        {activeTab === "search" && <SearchPage />}
-        {activeTab === "utilities" && <UtilitiesPage />}
-        {activeTab === "analytics" && <AnalyticsPage />}
-        {activeTab === "settings" && <SettingsPage user={user} />}
-        {activeTab === "admin" && user?.role === "admin" && <AdminPage />}
+      <main className="flex-1 overflow-hidden flex flex-col h-full bg-transparent z-10">
+        {/* Mobile Header Top Bar */}
+        <div className="md:hidden flex items-center justify-between px-6 py-4 bg-[#090d22]/80 border-b border-white/10 shrink-0 z-20 backdrop-blur-md">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-350 hover:text-white transition-all cursor-pointer"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-500 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-sans font-black text-sm tracking-tight text-white leading-none">
+              InsightEngine
+            </span>
+          </div>
+          <div className="w-9 h-9 opacity-0 font-bold" />
+        </div>
+
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          {activeTab === "dashboard" && (
+            <DashboardPage user={user} setActiveTab={setActiveTab} />
+          )}
+          {activeTab === "chat" && <ChatPage />}
+          {activeTab === "documents" && <DocumentsPage />}
+          {activeTab === "search" && <SearchPage />}
+          {activeTab === "utilities" && <UtilitiesPage />}
+          {activeTab === "analytics" && <AnalyticsPage />}
+          {activeTab === "settings" && <SettingsPage user={user} />}
+          {activeTab === "admin" && user?.role === "admin" && <AdminPage />}
+        </div>
       </main>
     </div>
   );

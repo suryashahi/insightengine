@@ -172,7 +172,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden h-[calc(100vh)] bg-[#020617] relative select-none">
+    <div className="flex-1 flex overflow-hidden h-full bg-[#020617] relative select-none">
       
       {/* Dynamic blurred blobs */}
       <div className="absolute top-[25%] left-[20%] w-[450px] h-[450px] rounded-full aurora-blob-1 opacity-20 -z-10" />
