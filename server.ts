@@ -26,30 +26,47 @@ const app = express();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "ai-research-assistant-super-secret-key-2026";
 
-// Custom CORS Middleware to allow cross-origin requests from any origin (including Vercel frontend)
+// Custom CORS Middleware with production logging, credentials support, and explicit preflight handling
 app.use((req, res, next) => {
   const allowedOrigins = [
     "https://insightengine-brown.vercel.app",
-    "http://localhost:3000",
     "http://localhost:5173",
+    "http://localhost:3000",
   ];
   const origin = req.headers.origin;
-  
+  const method = req.method;
+  const route = req.originalUrl || req.url;
+
+  let isAllowed = false;
+
   if (origin) {
-    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app") || origin.includes("localhost") || origin.includes("run.app")) {
+    if (
+      allowedOrigins.includes(origin) || 
+      origin.endsWith(".vercel.app") || 
+      origin.includes("localhost") || 
+      origin.includes("run.app")
+    ) {
+      isAllowed = true;
       res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
     } else {
-      res.setHeader("Access-Control-Allow-Origin", origin);
+      // CORS failure: unapproved origin attempt
+      console.warn(`[CORS FAILURE] Unauthorized origin Access Attempt: Origin='${origin}' | Method='${method}' | Route='${route}'`);
+      res.setHeader("Access-Control-Allow-Origin", "null");
     }
   } else {
+    // Non-browser access (e.g. Curl or Server-to-Server interactions)
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
 
+  // Pre-configure accepted headers and verbs
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
 
-  if (req.method === "OPTIONS") {
+  // Log connectivity audits in the server logs
+  console.log(`[NET AUDIT] [Incoming Request] Method=${method} | Route=${route} | Origin=${origin || "Direct/None"} | CORS Status=${origin ? (isAllowed ? "ALLOWED" : "BLOCKED") : "N/A"}`);
+
+  if (method === "OPTIONS") {
     return res.sendStatus(200);
   }
   next();
@@ -130,9 +147,7 @@ function rateLimiter(req: any, res: any, next: any) {
 app.get("/api/health", (req, res) => {
   return res.json({
     status: "ok",
-    timestamp: new Date().toISOString(),
-    message: "AI Research Assistant Backend is healthy and configured for Vercel integration.",
-    vercelAllowedOrigin: "https://insightengine-brown.vercel.app"
+    environment: "production"
   });
 });
 
